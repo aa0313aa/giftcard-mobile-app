@@ -4,9 +4,6 @@
 kivymd==1.1.1
 kivy==2.1.0
 
-# 데이터베이스
-sqlite3
-
 # HTTP 클라이언트
 requests==2.31.0
 
