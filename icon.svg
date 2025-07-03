@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- 배경 그라디언트 -->
+  <defs>
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2196F3;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1976D2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- 배경 원형 -->
+  <circle cx="256" cy="256" r="256" fill="url(#bg-gradient)"/>
+  
+  <!-- 상품권 카드 -->
+  <rect x="150" y="200" width="212" height="130" rx="20" ry="20" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="3"/>
+  
+  <!-- 카드 상단 줄무늬 -->
+  <rect x="170" y="220" width="172" height="20" fill="#FFC107"/>
+  
+  <!-- 카드 번호 (점선) -->
+  <rect x="180" y="260" width="25" height="10" fill="#BDBDBD"/>
+  <rect x="220" y="260" width="25" height="10" fill="#BDBDBD"/>
+  <rect x="260" y="260" width="25" height="10" fill="#BDBDBD"/>
+  <rect x="300" y="260" width="25" height="10" fill="#BDBDBD"/>
+  
+  <!-- 텍스트 -->
+  <text x="256" y="120" text-anchor="middle" font-family="Arial, sans-serif" font-size="48" fill="#FFFFFF">🎁</text>
+  <text x="256" y="380" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" fill="#FFFFFF">상품권</text>
+  <text x="256" y="420" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" fill="#FFFFFF">관리</text>
+</svg>

@@ -1,0 +1,32 @@
+{
+  "build_info": {
+    "app_name": "상품권 관리 시스템",
+    "package_name": "com.giftcard.manager",
+    "version": "1.0.0",
+    "build_date": "2025-07-03",
+    "target_platform": "Android"
+  },
+  "features": [
+    "상품권 관리 (추가/수정/삭제)",
+    "네이버 커머스 주문 자동 수집",
+    "SMS/MMS 자동 발송",
+    "24시간 백그라운드 실행",
+    "웹 관리 인터페이스",
+    "실시간 푸시 알림",
+    "오프라인 작업 지원"
+  ],
+  "technical_specs": {
+    "ui_framework": "Kivy/KivyMD",
+    "backend": "Flask",
+    "database": "SQLite",
+    "min_android": "7.0 (API 24)",
+    "target_android": "12.0 (API 31)",
+    "architecture": "arm64-v8a, armeabi-v7a"
+  },
+  "build_options": [
+    "GitHub Actions (권장)",
+    "WSL2 로컬 빌드",
+    "Docker 컨테이너",
+    "클라우드 서비스"
+  ]
+}
