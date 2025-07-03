@@ -1,4 +1,4 @@
-name: Build Android APK (Simple)
+name: Build Android APK (Network Stable)
 
 on:
   push:
@@ -10,6 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45  # 타임아웃 설정
     
     steps:
     - name: Checkout code
@@ -46,21 +47,42 @@ jobs:
           libtool \
           pkg-config \
           cmake \
-          unzip
+          unzip \
+          wget \
+          curl
     
-    - name: Set up Android SDK (Simple)
+    - name: Setup Android SDK (Network Stable)
       run: |
-        # Android SDK 설정 (간단한 방법)
+        # Android SDK 설정
         export ANDROID_SDK_ROOT=$HOME/android-sdk
         export ANDROID_HOME=$ANDROID_SDK_ROOT
         mkdir -p $ANDROID_SDK_ROOT
         
-        # Command Line Tools 다운로드 및 설치
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O /tmp/cmdline-tools.zip
+        # Command Line Tools 다운로드 (재시도 포함)
+        echo "Downloading Android Command Line Tools..."
+        for i in {1..5}; do
+          echo "Download attempt $i/5..."
+          if wget -q --timeout=60 --tries=3 \
+            https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip \
+            -O /tmp/cmdline-tools.zip; then
+            echo "Download successful!"
+            break
+          else
+            echo "Download failed, retrying in 10 seconds..."
+            sleep 10
+          fi
+          if [ $i -eq 5 ]; then
+            echo "All download attempts failed"
+            exit 1
+          fi
+        done
+        
+        # 압축 해제 및 설치
         unzip -q /tmp/cmdline-tools.zip -d $ANDROID_SDK_ROOT/
-        mv $ANDROID_SDK_ROOT/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools-old
+        mv $ANDROID_SDK_ROOT/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools-temp
         mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
-        mv $ANDROID_SDK_ROOT/cmdline-tools-old/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
+        mv $ANDROID_SDK_ROOT/cmdline-tools-temp/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
+        rm -rf $ANDROID_SDK_ROOT/cmdline-tools-temp
         
         # 환경변수 설정
         echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
@@ -68,8 +90,20 @@ jobs:
         echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
         echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
         
-        # SDK 패키지 설치
-        yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+        # SDK 패키지 설치 (재시도 포함)
+        echo "Installing Android SDK packages..."
+        for i in {1..3}; do
+          echo "SDK installation attempt $i/3..."
+          if yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses; then
+            echo "License acceptance successful!"
+            break
+          else
+            echo "License acceptance failed, retrying in 5 seconds..."
+            sleep 5
+          fi
+        done
+        
+        # 필수 패키지 설치
         $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platform-tools"
         $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platforms;android-31"
         $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "build-tools;31.0.0"
@@ -93,9 +127,35 @@ jobs:
         rm -rf bin
         rm -rf build
     
-    - name: Build APK
+    - name: Build APK with network retry
       run: |
-        buildozer android debug
+        # 네트워크 재시도를 위한 buildozer 실행
+        echo "Starting APK build with network retry..."
+        for i in {1..3}; do
+          echo "Build attempt $i/3..."
+          if timeout 30m buildozer android debug; then
+            echo "Build successful!"
+            break
+          else
+            echo "Build failed, cleaning and retrying..."
+            rm -rf .buildozer/android/platform/build-*
+            sleep 15
+          fi
+          if [ $i -eq 3 ]; then
+            echo "All build attempts failed"
+            exit 1
+          fi
+        done
+    
+    - name: Verify APK exists
+      run: |
+        if [ -f bin/*.apk ]; then
+          echo "APK file found:"
+          ls -la bin/*.apk
+        else
+          echo "APK file not found!"
+          exit 1
+        fi
     
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
