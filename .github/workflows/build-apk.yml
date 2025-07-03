@@ -67,6 +67,41 @@ jobs:
         echo "Installed packages:"
         $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --list_installed
     
+    - name: Ensure build-tools path for Buildozer
+      run: |
+        echo "Setting up build-tools path for Buildozer..."
+        BUILD_TOOLS_PATH="$ANDROID_SDK_ROOT/build-tools/31.0.0"
+        EXPECTED_PATH="$HOME/.buildozer/android/platform/android-sdk/build-tools/31.0.0"
+        
+        echo "Build tools installed at: $BUILD_TOOLS_PATH"
+        echo "Buildozer expects them at: $EXPECTED_PATH"
+        
+        # Create directory structure
+        mkdir -p "$(dirname "$EXPECTED_PATH")"
+        mkdir -p "$HOME/.buildozer/android/platform/android-sdk/platform-tools"
+        
+        # Create symlinks if they don't exist
+        if [ ! -d "$EXPECTED_PATH" ] && [ -d "$BUILD_TOOLS_PATH" ]; then
+          ln -s "$BUILD_TOOLS_PATH" "$EXPECTED_PATH"
+          echo "Created symlink: $EXPECTED_PATH -> $BUILD_TOOLS_PATH"
+        fi
+        
+        # Also link platform-tools
+        PLATFORM_TOOLS_PATH="$ANDROID_SDK_ROOT/platform-tools"
+        EXPECTED_PLATFORM_PATH="$HOME/.buildozer/android/platform/android-sdk/platform-tools"
+        if [ ! -L "$EXPECTED_PLATFORM_PATH" ] && [ -d "$PLATFORM_TOOLS_PATH" ]; then
+          rm -rf "$EXPECTED_PLATFORM_PATH"
+          ln -s "$PLATFORM_TOOLS_PATH" "$EXPECTED_PLATFORM_PATH"
+          echo "Created symlink: $EXPECTED_PLATFORM_PATH -> $PLATFORM_TOOLS_PATH"
+        fi
+        
+        # Verify AIDL tool
+        if [ -f "$BUILD_TOOLS_PATH/aidl" ]; then
+          echo "AIDL tool found at: $BUILD_TOOLS_PATH/aidl"
+        else
+          echo "Warning: AIDL tool not found!"
+        fi
+    
     - name: Install Buildozer
       run: |
         python -m pip install --upgrade pip
