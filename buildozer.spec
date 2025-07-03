@@ -13,8 +13,6 @@ source.exclude_dirs = tests,bin,.venv,__pycache__
 
 # 앱 버전
 version = 1.0.0
-version.regex = __version__ = ['"]([^'"]*)['"]
-version.filename = %(source.dir)s/main.py
 
 # 앱 아이콘 및 스플래시
 icon.filename = %(source.dir)s/icon.png
@@ -24,7 +22,7 @@ presplash.filename = %(source.dir)s/presplash.png
 android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_NETWORK_STATE,WAKE_LOCK,VIBRATE,SEND_SMS,READ_SMS,RECEIVE_SMS
 
 # 패키지 요구사항
-requirements = python3,kivy,kivymd,sqlite3,requests,apscheduler,python-dotenv,pillow,bcrypt,pybase64,plyer,pyjnius
+requirements = python3,kivy,kivymd,requests,apscheduler,python-dotenv,pillow,bcrypt,pybase64,plyer,pyjnius
 
 # 파이썬 버전
 python3 = 3.9
