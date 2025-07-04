@@ -69,38 +69,71 @@ jobs:
     
     - name: Ensure build-tools path for Buildozer
       run: |
-        echo "Setting up build-tools path for Buildozer..."
+        echo "Setting up Android SDK paths for Buildozer..."
+        
+        # Define paths
         BUILD_TOOLS_PATH="$ANDROID_SDK_ROOT/build-tools/31.0.0"
-        EXPECTED_PATH="$HOME/.buildozer/android/platform/android-sdk/build-tools/31.0.0"
+        PLATFORM_TOOLS_PATH="$ANDROID_SDK_ROOT/platform-tools"
+        CMDLINE_TOOLS_PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest"
+        
+        BUILDOZER_SDK_PATH="$HOME/.buildozer/android/platform/android-sdk"
+        EXPECTED_BUILD_TOOLS="$BUILDOZER_SDK_PATH/build-tools/31.0.0"
+        EXPECTED_PLATFORM_TOOLS="$BUILDOZER_SDK_PATH/platform-tools"
+        EXPECTED_TOOLS_BIN="$BUILDOZER_SDK_PATH/tools/bin"
         
         echo "Build tools installed at: $BUILD_TOOLS_PATH"
-        echo "Buildozer expects them at: $EXPECTED_PATH"
+        echo "Platform tools installed at: $PLATFORM_TOOLS_PATH"
+        echo "Command line tools installed at: $CMDLINE_TOOLS_PATH"
+        echo "Buildozer expects SDK at: $BUILDOZER_SDK_PATH"
         
         # Create directory structure
-        mkdir -p "$(dirname "$EXPECTED_PATH")"
-        mkdir -p "$HOME/.buildozer/android/platform/android-sdk/platform-tools"
+        mkdir -p "$(dirname "$EXPECTED_BUILD_TOOLS")"
+        mkdir -p "$EXPECTED_PLATFORM_TOOLS"
+        mkdir -p "$EXPECTED_TOOLS_BIN"
         
-        # Create symlinks if they don't exist
-        if [ ! -d "$EXPECTED_PATH" ] && [ -d "$BUILD_TOOLS_PATH" ]; then
-          ln -s "$BUILD_TOOLS_PATH" "$EXPECTED_PATH"
-          echo "Created symlink: $EXPECTED_PATH -> $BUILD_TOOLS_PATH"
+        # Create symlinks for build-tools
+        if [ ! -d "$EXPECTED_BUILD_TOOLS" ] && [ -d "$BUILD_TOOLS_PATH" ]; then
+          ln -s "$BUILD_TOOLS_PATH" "$EXPECTED_BUILD_TOOLS"
+          echo "Created symlink: $EXPECTED_BUILD_TOOLS -> $BUILD_TOOLS_PATH"
         fi
         
-        # Also link platform-tools
-        PLATFORM_TOOLS_PATH="$ANDROID_SDK_ROOT/platform-tools"
-        EXPECTED_PLATFORM_PATH="$HOME/.buildozer/android/platform/android-sdk/platform-tools"
-        if [ ! -L "$EXPECTED_PLATFORM_PATH" ] && [ -d "$PLATFORM_TOOLS_PATH" ]; then
-          rm -rf "$EXPECTED_PLATFORM_PATH"
-          ln -s "$PLATFORM_TOOLS_PATH" "$EXPECTED_PLATFORM_PATH"
-          echo "Created symlink: $EXPECTED_PLATFORM_PATH -> $PLATFORM_TOOLS_PATH"
+        # Create symlinks for platform-tools
+        if [ ! -L "$EXPECTED_PLATFORM_TOOLS" ] && [ -d "$PLATFORM_TOOLS_PATH" ]; then
+          rm -rf "$EXPECTED_PLATFORM_TOOLS"
+          ln -s "$PLATFORM_TOOLS_PATH" "$EXPECTED_PLATFORM_TOOLS"
+          echo "Created symlink: $EXPECTED_PLATFORM_TOOLS -> $PLATFORM_TOOLS_PATH"
         fi
         
-        # Verify AIDL tool
-        if [ -f "$BUILD_TOOLS_PATH/aidl" ]; then
-          echo "AIDL tool found at: $BUILD_TOOLS_PATH/aidl"
+        # Create symlinks for tools/bin (sdkmanager)
+        if [ -f "$CMDLINE_TOOLS_PATH/bin/sdkmanager" ]; then
+          ln -sf "$CMDLINE_TOOLS_PATH/bin/sdkmanager" "$EXPECTED_TOOLS_BIN/sdkmanager"
+          ln -sf "$CMDLINE_TOOLS_PATH/bin/avdmanager" "$EXPECTED_TOOLS_BIN/avdmanager"
+          echo "Created symlink: $EXPECTED_TOOLS_BIN/sdkmanager -> $CMDLINE_TOOLS_PATH/bin/sdkmanager"
+        fi
+        
+        # Create the entire SDK structure
+        mkdir -p "$BUILDOZER_SDK_PATH/platforms"
+        if [ -d "$ANDROID_SDK_ROOT/platforms/android-31" ]; then
+          ln -sf "$ANDROID_SDK_ROOT/platforms/android-31" "$BUILDOZER_SDK_PATH/platforms/android-31"
+          echo "Created symlink for Android 31 platform"
+        fi
+        
+        # Verify tools
+        echo "Verifying tools..."
+        if [ -f "$EXPECTED_BUILD_TOOLS/aidl" ]; then
+          echo "✓ AIDL tool found at: $EXPECTED_BUILD_TOOLS/aidl"
         else
-          echo "Warning: AIDL tool not found!"
+          echo "✗ AIDL tool not found!"
         fi
+        
+        if [ -f "$EXPECTED_TOOLS_BIN/sdkmanager" ]; then
+          echo "✓ sdkmanager found at: $EXPECTED_TOOLS_BIN/sdkmanager"
+        else
+          echo "✗ sdkmanager not found!"
+        fi
+        
+        echo "Buildozer SDK structure:"
+        ls -la "$BUILDOZER_SDK_PATH/"
     
     - name: Install Buildozer
       run: |
