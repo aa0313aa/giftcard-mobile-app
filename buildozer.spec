@@ -21,11 +21,11 @@ presplash.filename = %(source.dir)s/presplash.png
 # 권한 설정
 android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_NETWORK_STATE,WAKE_LOCK,VIBRATE,SEND_SMS,READ_SMS,RECEIVE_SMS
 
-# 패키지 요구사항
-requirements = python3,kivy,kivymd,requests,apscheduler,python-dotenv,pillow,bcrypt,pybase64,plyer,pyjnius
+# 패키지 요구사항 (최소한으로 줄임)
+requirements = python3,kivy,kivymd,requests,apscheduler,python-dotenv,pillow,plyer,pyjnius
 
-# 파이썬 버전
-python3 = 3.9
+# 파이썬 버전 (안정성 우선)
+python3 = 3.8
 
 # 빌드 설정
 [buildozer]
@@ -38,10 +38,10 @@ log_level = 2
 
 # 서명 설정 (배포용)
 [app:android]
-# Android SDK 버전
-android.api = 31
+# Android SDK 버전 (더 안정적인 버전)
+android.api = 33
 android.minapi = 21
-android.sdk = 31
+android.sdk = 33
 android.ndk = 25b
 android.gradle_dependencies = 
 

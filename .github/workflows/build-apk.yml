@@ -18,7 +18,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.8'
     
     - name: Set up JDK 17
       uses: actions/setup-java@v3
@@ -46,7 +46,15 @@ jobs:
           libtool \
           pkg-config \
           cmake \
-          unzip
+          unzip \
+          libgl1-mesa-dev \
+          libgles2-mesa-dev \
+          libgstreamer1.0-dev \
+          libgstreamer-plugins-base1.0-dev \
+          libsdl2-dev \
+          libsdl2-image-dev \
+          libsdl2-mixer-dev \
+          libsdl2-ttf-dev
     
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
@@ -56,8 +64,8 @@ jobs:
         echo "Installing required Android SDK components..."
         yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT \
           "platform-tools" \
-          "platforms;android-31" \
-          "build-tools;31.0.0" \
+          "platforms;android-33" \
+          "build-tools;33.0.0" \
           "ndk;25.2.9519653"
     
     - name: Verify Android SDK installation
@@ -72,12 +80,12 @@ jobs:
         echo "Setting up Android SDK paths for Buildozer..."
         
         # Define paths
-        BUILD_TOOLS_PATH="$ANDROID_SDK_ROOT/build-tools/31.0.0"
+        BUILD_TOOLS_PATH="$ANDROID_SDK_ROOT/build-tools/33.0.0"
         PLATFORM_TOOLS_PATH="$ANDROID_SDK_ROOT/platform-tools"
         CMDLINE_TOOLS_PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest"
         
         BUILDOZER_SDK_PATH="$HOME/.buildozer/android/platform/android-sdk"
-        EXPECTED_BUILD_TOOLS="$BUILDOZER_SDK_PATH/build-tools/31.0.0"
+        EXPECTED_BUILD_TOOLS="$BUILDOZER_SDK_PATH/build-tools/33.0.0"
         EXPECTED_PLATFORM_TOOLS="$BUILDOZER_SDK_PATH/platform-tools"
         EXPECTED_TOOLS_BIN="$BUILDOZER_SDK_PATH/tools/bin"
         

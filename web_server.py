@@ -19,8 +19,8 @@ import hashlib
 import base64
 import requests
 import json
-import bcrypt
-import pybase64
+# import bcrypt  # 안드로이드 빌드에서 문제가 되므로 주석 처리
+# import pybase64  # 안드로이드 빌드에서 문제가 되므로 주석 처리
 from dotenv import load_dotenv
 import threading
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -64,6 +64,9 @@ order_collection_status = {
     'errors': 0,
     'last_error': None
 }
+
+# 데이터베이스 및 설정 파일 경로
+DATABASE_PATH = 'gift_cards.db'
 
 # 데이터베이스 연결 함수
 def get_db_connection():
@@ -110,20 +113,18 @@ def get_db_connection():
         )
     ''')
     
-    # 새로운 orders 테이블 추가
+    # 수동 등록 상품 테이블 추가
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS orders (
+        CREATE TABLE IF NOT EXISTS manual_products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            order_number TEXT UNIQUE NOT NULL,
-            product_name TEXT NOT NULL,
-            customer_name TEXT,
-            phone_number TEXT,
-            quantity INTEGER DEFAULT 1,
+            name TEXT NOT NULL,
+            category TEXT,
             price INTEGER,
-            status TEXT DEFAULT 'pending',
-            order_date TIMESTAMP,
-            collected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            notes TEXT
+            description TEXT,
+            keywords TEXT,
+            image_url TEXT,
+            is_active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
@@ -156,10 +157,15 @@ def generate_pin():
 # === 네이버 API 관련 함수 ===
 
 def get_naver_api_signature(timestamp, method, path, client_secret):
-    """네이버 API 시그니처 생성 (bcrypt 방식)"""
+    """네이버 API 시그니처 생성 (HMAC 방식)"""
     password = f"{NAVER_CLIENT_ID}_{timestamp}"
-    hashed = bcrypt.hashpw(password.encode('utf-8'), client_secret.encode('utf-8'))
-    return pybase64.standard_b64encode(hashed).decode('utf-8')
+    # bcrypt 대신 HMAC-SHA256 사용
+    signature = hmac.new(
+        client_secret.encode('utf-8'),
+        password.encode('utf-8'),
+        hashlib.sha256
+    ).digest()
+    return base64.b64encode(signature).decode('utf-8')
 
 def get_naver_access_token():
     """네이버 API 접근 토큰 발급 (Signature 방식)"""
@@ -1893,6 +1899,7 @@ def api_resend_pin(pin_id):
             return jsonify({'success': False, 'message': 'PIN을 찾을 수 없습니다.'})
         
         # 고객 정보 확인
+
         customer_name = pin['customer_name']
         phone_number = pin['phone_number']
         
@@ -2101,7 +2108,7 @@ def api_delete_multiple_pins():
         # PIN들 삭제
         cursor.execute(f"DELETE FROM giftcards WHERE id IN ({placeholders})", pin_ids)
         deleted_count = cursor.rowcount
-        conn.commit()
+        conn.commit();
         
         return jsonify({
             'success': True,
@@ -2114,6 +2121,143 @@ def api_delete_multiple_pins():
     finally:
         if 'conn' in locals():
             conn.close()
+
+def search_products_locally(access_token, keyword):
+    """로컬에서 네이버 상품 검색"""
+    try:
+        print(f"로컬 상품 검색 시작: {keyword}")
+        
+        # 네이버 API를 통한 상품 검색
+        result = get_naver_products(access_token, page=1, search_keyword=keyword)
+        
+        if result and result.get('success', False):
+            products = result.get('products', [])
+            print(f"네이버 API에서 {len(products)}개 상품 검색됨")
+            
+            # 키워드 필터링 (로컬에서 추가 필터링)
+            filtered_products = []
+            keyword_lower = keyword.lower()
+            
+            for product in products:
+                product_name = product.get('name', '').lower()
+                product_description = product.get('description', '').lower()
+                
+                # 키워드가 상품명이나 설명에 포함되어 있으면 포함
+                if (keyword_lower in product_name or 
+                    keyword_lower in product_description or
+                    any(k in product_name for k in keyword_lower.split())):
+                    filtered_products.append(product)
+            
+            print(f"필터링 후 {len(filtered_products)}개 상품")
+            
+            return {
+                'success': True,
+                'products': filtered_products,
+                'total': len(filtered_products)
+            }
+        else:
+            print("네이버 API 검색 실패")
+            return {
+                'success': False,
+                'products': [],
+                'total': 0
+            }
+            
+    except Exception as e:
+        print(f"로컬 상품 검색 오류: {e}")
+        return {
+            'success': False,
+            'products': [],
+            'total': 0
+        }
+
+def search_manual_products(keyword):
+    """수동 등록된 상품 검색"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        # 수동 등록 상품 테이블에서 검색
+        query = """
+            SELECT id, name, description, price, category, image_url, created_at
+            FROM manual_products 
+            WHERE name LIKE ? OR description LIKE ?
+            ORDER BY created_at DESC
+        """
+        keyword_pattern = f"%{keyword}%"
+        cursor.execute(query, (keyword_pattern, keyword_pattern))
+        
+        rows = cursor.fetchall()
+        products = []
+        
+        for row in rows:
+            product = {
+                'id': f"manual_{row[0]}",
+                'name': row[1],
+                'description': row[2],
+                'price': row[3],
+                'category': row[4],
+                'image_url': row[5],
+                'created_at': row[6],
+                'source': 'manual'  # 수동 등록 상품임을 표시
+            }
+            products.append(product)
+        
+        conn.close()
+        print(f"수동 등록 상품 검색 결과: {len(products)}개")
+        return products
+        
+    except Exception as e:
+        print(f"수동 등록 상품 검색 오류: {e}")
+        return []
+
+def get_alternative_products(keyword):
+    """검색 결과가 없을 때 대체 상품 제안"""
+    try:
+        # 키워드 기반 유사 상품 추천 로직
+        suggestions = []
+        
+        # 간단한 키워드 매칭을 통한 대체 상품 제안
+        keyword_lower = keyword.lower()
+        
+        # 일반적인 상품 카테고리별 추천
+        category_suggestions = {
+            '상품권': ['문화상품권', '도서상품권', '온라인상품권'],
+            '게임': ['게임아이템', '게임머니', '게임쿠폰'],
+            '음식': ['외식상품권', '배달쿠폰', '커피쿠폰'],
+            '쇼핑': ['쇼핑몰상품권', '백화점상품권', '온라인쇼핑쿠폰']
+        }
+        
+        for category, items in category_suggestions.items():
+            if category in keyword_lower:
+                suggestions.extend(items)
+                break
+        
+        # 기본 추천 상품 (검색 결과가 없을 때)
+        if not suggestions:
+            suggestions = ['문화상품권', '도서상품권', '게임아이템', '외식상품권']
+        
+        return suggestions[:5]  # 최대 5개까지
+        
+    except Exception as e:
+        print(f"대체 상품 제안 오류: {e}")
+        return []
+
+def get_manual_registration_info(keyword):
+    """수동 등록 안내 정보"""
+    return {
+        'message': f'"{keyword}" 상품을 직접 등록할 수 있습니다.',
+        'steps': [
+            '1. 상품 관리 메뉴로 이동',
+            '2. "상품 추가" 버튼 클릭',
+            '3. 상품 정보 입력 후 저장'
+        ],
+        'benefits': [
+            '즉시 판매 가능',
+            '가격 자유 설정',
+            '재고 관리 용이'
+        ]
+    }
 
 if __name__ == '__main__':
     print("🎯 상품권 관리 시스템 웹 서버 시작")
