@@ -427,6 +427,145 @@ def get_naver_products(access_token, page=1, search_keyword=None, category_filte
         'note': 'API 연결 실패로 임시 데이터를 표시합니다. 네이버 커머스 API 설정을 확인해주세요.'
     }
 
+# === 상품 검색 관련 함수들 ===
+
+def search_products_locally(access_token, keyword):
+    """로컬에서 네이버 상품 검색"""
+    try:
+        print(f"로컬 상품 검색 시작: {keyword}")
+        
+        # 네이버 API를 통한 상품 검색
+        result = get_naver_products(access_token, page=1, search_keyword=keyword)
+        
+        if result and result.get('success', False):
+            products = result.get('products', [])
+            print(f"네이버 API에서 {len(products)}개 상품 검색됨")
+            
+            # 키워드 필터링 (로컬에서 추가 필터링)
+            filtered_products = []
+            keyword_lower = keyword.lower()
+            
+            for product in products:
+                product_name = product.get('name', '').lower()
+                product_description = product.get('description', '').lower()
+                
+                # 키워드가 상품명이나 설명에 포함되어 있으면 포함
+                if (keyword_lower in product_name or 
+                    keyword_lower in product_description or
+                    any(k in product_name for k in keyword_lower.split())):
+                    filtered_products.append(product)
+            
+            print(f"필터링 후 {len(filtered_products)}개 상품")
+            
+            return {
+                'success': True,
+                'products': filtered_products,
+                'total': len(filtered_products)
+            }
+        else:
+            print("네이버 API 검색 실패")
+            return {
+                'success': False,
+                'products': [],
+                'total': 0
+            }
+            
+    except Exception as e:
+        print(f"로컬 상품 검색 오류: {e}")
+        return {
+            'success': False,
+            'products': [],
+            'total': 0
+        }
+
+def search_manual_products(keyword):
+    """수동 등록된 상품 검색"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        # 수동 등록 상품 테이블에서 검색
+        query = """
+            SELECT id, name, description, price, category, image_url, created_at
+            FROM manual_products 
+            WHERE name LIKE ? OR description LIKE ?
+            ORDER BY created_at DESC
+        """
+        keyword_pattern = f"%{keyword}%"
+        cursor.execute(query, (keyword_pattern, keyword_pattern))
+        
+        rows = cursor.fetchall()
+        products = []
+        
+        for row in rows:
+            product = {
+                'id': f"manual_{row[0]}",
+                'name': row[1],
+                'description': row[2],
+                'price': row[3],
+                'category': row[4],
+                'image_url': row[5],
+                'created_at': row[6],
+                'source': 'manual'  # 수동 등록 상품임을 표시
+            }
+            products.append(product)
+        
+        conn.close()
+        print(f"수동 등록 상품 검색 결과: {len(products)}개")
+        return products
+        
+    except Exception as e:
+        print(f"수동 등록 상품 검색 오류: {e}")
+        return []
+
+def get_alternative_products(keyword):
+    """검색 결과가 없을 때 대체 상품 제안"""
+    try:
+        # 키워드 기반 유사 상품 추천 로직
+        suggestions = []
+        
+        # 간단한 키워드 매칭을 통한 대체 상품 제안
+        keyword_lower = keyword.lower()
+        
+        # 일반적인 상품 카테고리별 추천
+        category_suggestions = {
+            '상품권': ['문화상품권', '도서상품권', '온라인상품권'],
+            '게임': ['게임아이템', '게임머니', '게임쿠폰'],
+            '음식': ['외식상품권', '배달쿠폰', '커피쿠폰'],
+            '쇼핑': ['쇼핑몰상품권', '백화점상품권', '온라인쇼핑쿠폰']
+        }
+        
+        for category, items in category_suggestions.items():
+            if category in keyword_lower:
+                suggestions.extend(items)
+                break
+        
+        # 기본 추천 상품 (검색 결과가 없을 때)
+        if not suggestions:
+            suggestions = ['문화상품권', '도서상품권', '게임아이템', '외식상품권']
+        
+        return suggestions[:5]  # 최대 5개까지
+        
+    except Exception as e:
+        print(f"대체 상품 제안 오류: {e}")
+        return []
+
+def get_manual_registration_info(keyword):
+    """수동 등록 안내 정보"""
+    return {
+        'message': f'"{keyword}" 상품을 직접 등록할 수 있습니다.',
+        'steps': [
+            '1. 상품 관리 메뉴로 이동',
+            '2. "상품 추가" 버튼 클릭',
+            '3. 상품 정보 입력 후 저장'
+        ],
+        'benefits': [
+            '즉시 판매 가능',
+            '가격 자유 설정',
+            '재고 관리 용이'
+        ]
+    }
+
 # === 기존 코드 ===
 
 @app.route('/')
@@ -2121,143 +2260,6 @@ def api_delete_multiple_pins():
     finally:
         if 'conn' in locals():
             conn.close()
-
-def search_products_locally(access_token, keyword):
-    """로컬에서 네이버 상품 검색"""
-    try:
-        print(f"로컬 상품 검색 시작: {keyword}")
-        
-        # 네이버 API를 통한 상품 검색
-        result = get_naver_products(access_token, page=1, search_keyword=keyword)
-        
-        if result and result.get('success', False):
-            products = result.get('products', [])
-            print(f"네이버 API에서 {len(products)}개 상품 검색됨")
-            
-            # 키워드 필터링 (로컬에서 추가 필터링)
-            filtered_products = []
-            keyword_lower = keyword.lower()
-            
-            for product in products:
-                product_name = product.get('name', '').lower()
-                product_description = product.get('description', '').lower()
-                
-                # 키워드가 상품명이나 설명에 포함되어 있으면 포함
-                if (keyword_lower in product_name or 
-                    keyword_lower in product_description or
-                    any(k in product_name for k in keyword_lower.split())):
-                    filtered_products.append(product)
-            
-            print(f"필터링 후 {len(filtered_products)}개 상품")
-            
-            return {
-                'success': True,
-                'products': filtered_products,
-                'total': len(filtered_products)
-            }
-        else:
-            print("네이버 API 검색 실패")
-            return {
-                'success': False,
-                'products': [],
-                'total': 0
-            }
-            
-    except Exception as e:
-        print(f"로컬 상품 검색 오류: {e}")
-        return {
-            'success': False,
-            'products': [],
-            'total': 0
-        }
-
-def search_manual_products(keyword):
-    """수동 등록된 상품 검색"""
-    try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
-        
-        # 수동 등록 상품 테이블에서 검색
-        query = """
-            SELECT id, name, description, price, category, image_url, created_at
-            FROM manual_products 
-            WHERE name LIKE ? OR description LIKE ?
-            ORDER BY created_at DESC
-        """
-        keyword_pattern = f"%{keyword}%"
-        cursor.execute(query, (keyword_pattern, keyword_pattern))
-        
-        rows = cursor.fetchall()
-        products = []
-        
-        for row in rows:
-            product = {
-                'id': f"manual_{row[0]}",
-                'name': row[1],
-                'description': row[2],
-                'price': row[3],
-                'category': row[4],
-                'image_url': row[5],
-                'created_at': row[6],
-                'source': 'manual'  # 수동 등록 상품임을 표시
-            }
-            products.append(product)
-        
-        conn.close()
-        print(f"수동 등록 상품 검색 결과: {len(products)}개")
-        return products
-        
-    except Exception as e:
-        print(f"수동 등록 상품 검색 오류: {e}")
-        return []
-
-def get_alternative_products(keyword):
-    """검색 결과가 없을 때 대체 상품 제안"""
-    try:
-        # 키워드 기반 유사 상품 추천 로직
-        suggestions = []
-        
-        # 간단한 키워드 매칭을 통한 대체 상품 제안
-        keyword_lower = keyword.lower()
-        
-        # 일반적인 상품 카테고리별 추천
-        category_suggestions = {
-            '상품권': ['문화상품권', '도서상품권', '온라인상품권'],
-            '게임': ['게임아이템', '게임머니', '게임쿠폰'],
-            '음식': ['외식상품권', '배달쿠폰', '커피쿠폰'],
-            '쇼핑': ['쇼핑몰상품권', '백화점상품권', '온라인쇼핑쿠폰']
-        }
-        
-        for category, items in category_suggestions.items():
-            if category in keyword_lower:
-                suggestions.extend(items)
-                break
-        
-        # 기본 추천 상품 (검색 결과가 없을 때)
-        if not suggestions:
-            suggestions = ['문화상품권', '도서상품권', '게임아이템', '외식상품권']
-        
-        return suggestions[:5]  # 최대 5개까지
-        
-    except Exception as e:
-        print(f"대체 상품 제안 오류: {e}")
-        return []
-
-def get_manual_registration_info(keyword):
-    """수동 등록 안내 정보"""
-    return {
-        'message': f'"{keyword}" 상품을 직접 등록할 수 있습니다.',
-        'steps': [
-            '1. 상품 관리 메뉴로 이동',
-            '2. "상품 추가" 버튼 클릭',
-            '3. 상품 정보 입력 후 저장'
-        ],
-        'benefits': [
-            '즉시 판매 가능',
-            '가격 자유 설정',
-            '재고 관리 용이'
-        ]
-    }
 
 if __name__ == '__main__':
     print("🎯 상품권 관리 시스템 웹 서버 시작")
